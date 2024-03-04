@@ -56,6 +56,10 @@ mkfs.vfat "${DISK}1"    # Format EFI Boot Partition as FAT32
 mkswap "${DISK}2"       # Format Swap Partition
 mkfs.ext4 "${DISK}3"    # Format Root Partition as ext4
 
+# Mount boot partition
+echo "Mounting boot partition..."
+mount "${DISK}1" /mnt/boot/efi
+
 # Mount root partition
 echo "Mounting root partition..."
 mount "${DISK}3" /mnt
@@ -77,7 +81,9 @@ echo "Generating fstab file"
 
 genfstab -U /mnt >> /mnt/etc/fstab
 
-arch-chroot /mnt
+
+arch-chroot /mnt <<EOF
+
 
 echo "setting timezone"
 ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
@@ -114,10 +120,13 @@ echo "Installing grub efibootmgr and networkmanager"
 
 pacman -Sy --needed --noconfirm grub efibootmgr networkmanager
 
+# Install GRUB
 echo "Installing GRUB..."
 grub-install --target=x86_64-efi --efi-directory=/mnt/boot/efi --bootloader-id=GRUB
-grub-mkconfig -o /mnt/boot/grub/grub.cfg
 
+# Generate GRUB Configuration
+echo "Generating GRUB configuration..."
+grub-mkconfig -o /mnt/boot/grub/grub.cfg
 
 echo "Enabling NetworkManager"
 systemctl enable NetworkManager
@@ -137,7 +146,14 @@ passwrd $username
 echo "Giving sudo access to "$username"!"
 echo "$username ALL=(ALL) ALL" >> /etc/sudoers.d/$username
 
-exit
+EOF
+
+umount -R /mnt
+swapoff -a
+
+echo "Arch Linux is installed, rebooting in 3 seconds"
+sleep 3
+
 reboot
 
 
