@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo -ne "
 ------------------------------------------------------------------
  ░▒▓██████▓▒░ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓███████▓▒░  
@@ -248,7 +250,6 @@ clear
 
 echo "Giving sudo access to "$username"!"
 echo "$username ALL=(ALL) ALL" >> /etc/sudoers.d/$username
-cler
 
 exit
 reboot
