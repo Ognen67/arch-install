@@ -8,5 +8,5 @@
 
 `cd arch-install`
 
-`./install.sh`
+`sh install.sh`
 
