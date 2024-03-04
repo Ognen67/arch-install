@@ -18,154 +18,69 @@ pacman -Sy --needed --noconfirm archlinux-keyring
 
 timedatectl set-ntp true
 
-lsblk
+ZONE="/Europe/Skopje"
 
-echo "Enter the drive you'd like to install arch linux on. ("/dev/sda", "/dev/nvme0n1" or something else)"
-read drive
+# ------------
+# PARTITIONING
+# ------------
 
-lsblk
-echo "Choose which disk utility tool you'd like to use to partition your drive"
-echo "1. fdisk"
-echo "2. cfdisk"
-echo "3. gdisk"
-echo "4. parted"
-read partitionutility
+# Define disk and partition sizes
+BOOT_SIZE=300M   # Size for boot partition (e.g., 300MB)
+SWAP_SIZE=2G     # Size for swap partition (e.g., 2GB)
+ROOT_SIZE=       # Remaining space will be allocated to the root partition
 
-case "$partitionutility" in 
-    1 | fdisk | Fdisk | FDISK) 
-    partitionutility="fdisk"
-    ;;
-    2 | cfdisk | Cfdisk | CFDISK) 
-    partitionutility="cfdisk"
-    ;;
-    3 | gdisk | Gdisk | GDISK) 
-    partitionutility="cfdisk"
-    ;;
-    4 | parted | Parted | PARTED) 
-    partitionutility="parted"
-    ;;
-    *)
-    echo "Unknown or unsupported disk partitioning utility! Default is cfdisk"
-    partitionutility="cfdisk"
-    ;;
-esac
+# Disk to partition
+DISK="/dev/sda"
 
-echo ""$partitionutility" is the selected disk utility "
+# Unmount everything in /mnt if it's mounted
+umount -A --recursive /mnt
 
-clear
+# Disk preparation
+echo "Preparing the disk..."
+sgdisk -Z "${DISK}"           # Zap all on disk
+sgdisk -a 2048 -o "${DISK}"   # New GPT disk with 2048 alignment
 
-echo "Getting ready for creating partitions!"
-echo "root and boot partitions are mandatory."
-echo "home and swap partitions are optional but recommended!"
-echo "Also, you can create a separate partition for timeshift backup (optional)!"
-echo "Getting ready in 9 seconds"
+# Create partitions
+echo "Creating partitions..."
+sgdisk -n 1::+"$BOOT_SIZE" --typecode=1:ef00 --change-name=1:'EFIBOOT' "${DISK}"   # EFI Boot Partition
+sgdisk -n 2::+"$SWAP_SIZE" --typecode=2:8200 --change-name=2:'SWAP' "${DISK}"      # Swap Partition
+sgdisk -n 3::-0 --typecode=3:8300 --change-name=3:'ROOT' "${DISK}"                 # Root Partition
 
-"$partitionutility" "$drive"
+# Partprobe to reread partition table to ensure it is correct
+echo "Rereading partition table..."
+partprobe "${DISK}"
 
-clear
+# Make filesystems
+echo "Formatting partitions..."
+mkfs.vfat "${DISK}1"    # Format EFI Boot Partition as FAT32
+mkswap "${DISK}2"       # Format Swap Partition
+mkfs.ext4 "${DISK}3"    # Format Root Partition as ext4
 
-lsblk
+# Mount root partition
+echo "Mounting root partition..."
+mount "${DISK}3" /mnt
 
-echo "choose your linux file system type for formatting drives"
+# Enable swap
+echo "Enabling swap..."
+swapon "${DISK}2"
 
-echo "choose your linux file system type for formatting drives"
-echo " 1. ext4"
-echo " 2. xfs"
-echo " 3. btrfs"
-echo " 4. f2fs"
-echo " Boot partition will be formatted in fat32 file system type."
-read filesystemtype
+# Output partition table
+echo "Partition table:"
+lsblk "${DISK}"
 
-case "$filesystemtype" in
-    1 | ext4 | Ext4 | EXT4)
-    filesystemtype="ext4"
-    ;;
-    2 | xfs | Xfs | XFS)
-    filesystemtype="xfs"
-    ;;
-    3 | btrfs | Btrfs | BTRFS)
-    filesystemtype="btrfs"
-    ;;
-    4 | f2fs | F2fs | F2FS)
-    filesystemtype="f2fs"
-    ;;
-    *)
-    echo "Unknown or unsupported Filesystem. Default = ext4."
-    filesystemtype="ext4"
-    ;;
-esac
-
-echo ""$filesystemtype" is the selected file system type."
-
-clear
-
-echo "Getting ready for formatting drives."
-
-lsblk
-
-echo "Enter the root partition (ex: /dev/sda1): "
-read rootpartition
-
-mkfs."$filesystemtype" "$rootpartition"
-mount "$rootpatition" /mnt
-
-clear
-lsblk
-
-read -p "Did you also create separate home partition [y/n]: " answerhome
-case "$answerhome" in
-    y | Y | yes | Yes | YES)
-    echo "Enter home partition (ex: /dev/sda2): "
-    read homepartition
-    mkfs."$filesystemtype" "$homepartition"
-    mkdir /mnt/home
-    mount "$homepartition" /mnt/home
-    ;;
-    *)
-    echo "Skipping home partition!"
-    ;;
-esac
-clear
-lsblk
-read -p "Do you want to create a swap partition? [y/n]: " answeswap
-case "$answerswap" in
-    y | Y | yes | Yes | YES)
-    echo "Enter swap partition (ex: /dev/sda3): "
-    read swappartition
-    mkswap "$swappartition"
-    swapon "$swappartition"
-    ;;
-    *)
-    echo "Skipping swap partition"
-    ;;
-esac
-
-clear lsblk
-
-read -p "Enter the boot partition drive (ex. /dev/sda4): " answefi
-mkfs.fat -F 32 "$answerfi"
-clear
-lsblk
-
-clear
-clear
 
 echo "Installing base system"
 
 pacstrap -K /mnt base linux linux-firmware
 
-clear
 echo "Generating fstab file"
 
 genfstab -U /mnt >> /mnt/etc/fstab
 
-clear
-
 arch-chroot /mnt
-clear
 
 echo "setting timezone"
-ln -sf /usr/share/zoneinfo/Europe/Skopje /etc/localtime
+ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
 
 hwclock --systohc
 
@@ -173,71 +88,43 @@ echo "generating locale"
 echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 locale-gen
 
-
-clear
-
 echo "setting LANG variable"
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
-
-clear
 
 echo "setting console keyboard layout"
 echo "KEYMAP=us" > /etc/vconsole.conf
 
-clear
-
-echo "Set up your hostname!"
+echo "Set up your hostname"
 echo "Enter your computer name: "
 read hostname
 echo $hostname > /etc/hostname
 echo "Checking hostname (/etc/hostname)"
 cat /etc/hostname
 
-clear
 
 echo "setting up hosts file"
 echo "127.0.0.1       localhost" >> /etc/hosts
 echo "::1             localhost" >> /etc/hosts
 echo "127.0.1.1       $hostname" >> /etc/hosts
-clear
 
 echo "checking /etc/hosts file"
 cat /etc/hosts
 
-clear
-
 echo "Installing grub efibootmgr and networkmanager"
 
 pacman -Sy --needed --noconfirm grub efibootmgr networkmanager
-clear
 
-lsblk
-echo "Enter the boot partition to install bootloader. (ex: /dev/sda4): "
-read efipartition
-efidirectory="/boot/efi/"
+echo "Installing GRUB..."
+grub-install --target=x86_64-efi --efi-directory=/mnt/boot/efi --bootloader-id=GRUB
+grub-mkconfig -o /mnt/boot/grub/grub.cfg
 
-if [ ! -d "$efidirectory" ]; then
-    mkdir -p efidirectory
-fi
-
-mount "$efipartition" "$efidirectory"
-clear
-lsblk
-
-echo "Installing grub bootloader in /boot/efi partition"
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --boatloader-id=GRUB --removable
-grub-mkconfig -o /boot/grub/grub.cfg
-
-clear
 
 echo "Enabling NetworkManager"
 systemctl enable NetworkManager
 
-clear
 
 echo "Enter password for root user: "
 passwd
-clear
 
 echo "Adding regular user"
 echo "Enter username to add a regular user: "
@@ -246,7 +133,6 @@ read username
 useradd -m -g users -G wheel,audio,video -s /bin/bash $username
 echo "Enter password for "$username": "
 passwrd $username
-clear
 
 echo "Giving sudo access to "$username"!"
 echo "$username ALL=(ALL) ALL" >> /etc/sudoers.d/$username
