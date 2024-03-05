@@ -26,21 +26,6 @@ YmSH4jMeFaM6nlKnIzyAxem4/IU95NE9iWotuseBxgMAqF41l90BAAA=" | gunzip
         fi
     done
 
-    PS3="Choose your Windows partition to setup dual-boot: "
-
-    select drive in $(lsblk | sed '/\(^├\|^└\)/!d' | cut -d " " -f 1 | cut -c7-) "None"
-    do
-        if [ "$drive" = "None" ]; then
-            unset WIN_DEVICE
-            break
-        fi
-
-        if [ $drive ]; then
-            export WIN_DEVICE="/dev/$drive"
-            break
-        fi
-    done
-
     PS3="Choose an extra partition to use as Storage: "
 
     select drive in $(lsblk | sed '/\(^├\|^└\)/!d' | cut -d " " -f 1 | cut -c7-) "None"
@@ -172,7 +157,6 @@ update_keyring() {
     pacman --noconfirm --ask=127 -Sy archlinux-keyring
 }
 
-
 ################
 # PARTITIONING #
 ################
@@ -279,7 +263,6 @@ partition_and_mount_bios() {
     reflector > /etc/pacman.d/mirrorlist
 }
 
-
 install_base() {
     pacstrap /mnt ${BASE[*]}
     reflector > /mnt/etc/pacman.d/mirrorlist
@@ -290,7 +273,6 @@ install_base() {
         print
     }' >> /mnt/etc/fstab
 }
-
 
 ###########
 # NETWORK #
@@ -321,7 +303,6 @@ configure_locale() {
 
     echo "LANG=en_US.UTF-8" > /etc/locale.conf
 }
-
 
 ########
 # BASE #
@@ -376,7 +357,6 @@ install_cpu_ucode() {
     fi
 }
 
-
 #########
 # USERS #
 #########
@@ -391,7 +371,6 @@ setup_users() {
     # add insults to injury
     echo 'Defaults insults' > /etc/sudoers.d/insults
 }
-
 
 #######
 # GUI #
@@ -451,7 +430,6 @@ prepare_gui() {
             ;;
     esac
 }
-
 
 #################
 # CUSTOMIZATION #
@@ -531,7 +509,6 @@ install_dotfiles() {
     chown -R ${USR}:${USR} ${USR_HOME}
     sudo -u ${USR} ${USR_HOME}/.dotfiles/install.sh
 }
-
 
 ############
 # SERVICES #

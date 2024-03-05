@@ -14,7 +14,6 @@ Minimal Arch Installer
 ------------------------------------------------------------------
 "               
 
-
 # fetch scripts
 if ! [ -f definitions.sh ]; then
     curl -Lo definitions.sh "https://raw.githubusercontent.com/Ognen67/arch-install/master/definitions.sh"
